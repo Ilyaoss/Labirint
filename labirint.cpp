@@ -51,12 +51,9 @@ public:
         cameFrom = cf;
         pathLengthFromStart = 0;
         heuristicEstimatePathLength = 0;
+		neighbours = getNeighbours(p,myMaze);
     }
-	
-	void addNeighbours(vector<Point*> n) {
-        neighbours = n;
-    }
-	
+
     void goNext() {
 		int size = neighbours.size();
 		myMaze[position->X][position->Y] = 'y';
@@ -68,23 +65,27 @@ public:
 		//Если нет соседей, возращаемся к последнему разветвлению
 		else if(size < 1) {
 		    Point* branch;
-    	    if (branches.size() > 0) {
+    	    while (branches.size() > 0) {
     		    branch = branches.back();
     		    branches.pop_back();
-    		     
-				for (int i = 0; i < row; i++) {
-					cerr << myMaze[i] <<endl;
-				}
-				cerr << "cur pos" << position->X << " " << position->Y << endl;
-				cerr << "brunch pos" << branch->X << " " << branch->Y << endl;
-				//Вычисляем путь до последнего разветвления
-				vector<string> pathToLastBranch = findPath(position,branch);
-				
-				for(int i = 0;i<pathToLastBranch.size();++i) {
-					cerr << pathToLastBranch[i] << endl;
-					cout << pathToLastBranch[i] << endl;
-				}
-    			myMaze[branch->X][branch->Y] = 'y';
+    		    //Проверяем осталось ли там разветвление
+    		    if(isBrunch(branch)){ 
+					for (int i = 0; i < row; i++) {
+						cerr << myMaze[i] <<endl;
+					}
+					cerr << "cur pos" << position->X << " " << position->Y << endl;
+					cerr << "brunch pos" << branch->X << " " << branch->Y << endl;
+					//Вычисляем путь до последнего разветвления
+					vector<string> pathToLastBranch = findPath(position,branch);
+					
+					for(int i = 0;i<pathToLastBranch.size();++i) {
+						cerr << pathToLastBranch[i] << endl;
+						cout << pathToLastBranch[i] << endl;
+					}
+					return;
+				}    			
+				//Если не осталось изменяем метку
+    			else myMaze[branch->X][branch->Y] = 'y';
     	    }
 			//Если разветвлений не осталось, то лабиринт изучен и можно идти к точке C и Т
     	    cerr << "current pos" << position->X << " " << position->Y << endl;
@@ -152,7 +153,7 @@ public:
             openSet.erase(openSet.begin());
             closedSet.push_back(currentNode);
             // Ищем соседей
-            vector<PathNode*> neighbourNodes = getNeighbours(currentNode, goal, myMaze);
+            vector<PathNode*> neighbourNodes = getNeighbours(currentNode, goal);
             for(int i = 0; i < neighbourNodes.size();++i) {
                 PathNode* neighbourNode = neighbourNodes[i];
 				// Если сосед уже есть в списке пройденных - пропускаем
@@ -203,7 +204,27 @@ public:
 		return path;
 	}
 	
-	vector<PathNode*> getNeighbours(PathNode* pathNode, Point* goal, string* field) {
+	//Получаем соседние точки
+	vector<Point*> getNeighbours(Point* cur, string* M) {
+		vector<Point*> Neighbours;
+		int X = cur->X;
+		int Y = cur->Y;
+		if(M[X][Y+1]=='.') {
+			Neighbours.push_back(new Point(X,Y+1));
+		} 
+		if(M[X][Y-1]=='.') {
+			Neighbours.push_back(new Point(X,Y-1));
+		} 
+		if(M[X+1][Y]=='.') {
+			Neighbours.push_back(new Point(X+1,Y));
+		} 
+		if(M[X-1][Y]=='.') {
+			Neighbours.push_back(new Point(X-1,Y));
+		}
+		return Neighbours;
+	}
+	
+	vector<PathNode*> getNeighbours(PathNode* pathNode, Point* goal) {
     	vector<PathNode*> result;
     
     	vector<Point*> neighbourPoints;
@@ -215,7 +236,7 @@ public:
     	for(int i = 0; i < neighbourPoints.size(); ++i)
     	{
     		// Проверяем, что по клетке можно ходить.
-    		if ((field[neighbourPoints[i]->X][neighbourPoints[i]->Y] != '?') && (field[neighbourPoints[i]->X][neighbourPoints[i]->Y] != '#'))
+    		if ((myMaze[neighbourPoints[i]->X][neighbourPoints[i]->Y] != '?') && (myMaze[neighbourPoints[i]->X][neighbourPoints[i]->Y] != '#'))
     		{
         		// Заполняем данные для точки маршрута.
         		PathNode* neighbourNode = new PathNode(neighbourPoints[i], pathNode);
@@ -230,7 +251,7 @@ public:
 	Point* findC() {
     	for(int i = 0; i < row; ++i) {
             for(int j = 0; j < cell; ++j){
-                if(realMaze[i][j]=='C')
+                if(myMaze[i][j]=='C')
                     return new Point(i,j);
             }
         }
@@ -268,29 +289,12 @@ public:
     }
 };
 
-vector<Point*> getNeighbours(Point* cur, string* M) {
-    vector<Point*> Neighbours;
-    int X = cur->X;
-    int Y = cur->Y;
-    if(M[X][Y+1]=='.') {
-        Neighbours.push_back(new Point(X,Y+1));
-    } 
-	if(M[X][Y-1]=='.') {
-        Neighbours.push_back(new Point(X,Y-1));
-    } 
-	if(M[X+1][Y]=='.') {
-        Neighbours.push_back(new Point(X+1,Y));
-    } 
-	if(M[X-1][Y]=='.') {
-        Neighbours.push_back(new Point(X-1,Y));
-    }
-    return Neighbours;
-}
 
 void compareMaze(string* real, string* my, int R, int C) {
     for(int i = 0; i < R; ++i) {
         for(int j = 0; j < C; ++j){
-            if(real[i][j]!=my[i][j] && my[i][j]!='y')
+            if(real[i][j]!=my[i][j] && my[i][j]!='y'
+									&& my[i][j]!='b')
                 my[i][j] = real[i][j];
         }
     }
@@ -337,8 +341,7 @@ int main()
         PathNode::realMaze = maze;
 		
 		curPoint = new Point(KR,KC);
-		cur = new PathNode(curPoint);
-		cur->addNeighbours(getNeighbours(curPoint, myMaze)); 
+		cur = new PathNode(curPoint); 
 		cur->goNext();
 
         // Write an action using cout. DON'T FORGET THE "<< endl"
