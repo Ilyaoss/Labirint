@@ -2,7 +2,6 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <climits>
 #include <cmath>
 using namespace std;
 
@@ -45,6 +44,9 @@ public:
 	//Размер лабиринта
 	static int row;
 	static int cell;
+	//Счётчик, для приостановки бесконечного цикла в main
+	//Приостанавливаем, чтобы предотвратить создание новый точек, пока движемся
+	static int counter;
 public:
     PathNode(Point* p, PathNode* cf = NULL) {
         position = p;
@@ -73,13 +75,13 @@ public:
 					for (int i = 0; i < row; i++) {
 						cerr << myMaze[i] <<endl;
 					}
-					cerr << "cur pos" << position->X << " " << position->Y << endl;
-					cerr << "brunch pos" << branch->X << " " << branch->Y << endl;
+					//cerr << "cur pos" << position->X << " " << position->Y << endl;
+					//cerr << "brunch pos" << branch->X << " " << branch->Y << endl;
 					//Вычисляем путь до последнего разветвления
 					vector<string> pathToLastBranch = findPath(position,branch);
-					
-					for(int i = 0;i<pathToLastBranch.size();++i) {
-						cerr << pathToLastBranch[i] << endl;
+					//Выставляем счётсчик и движемся
+        			counter = pathToLastBranch.size();
+					for(int i = 0; i < pathToLastBranch.size(); ++i) {
 						cout << pathToLastBranch[i] << endl;
 					}
 					return;
@@ -92,16 +94,14 @@ public:
 			Point* contorPoint = findC();
 			cerr << "C pos" << contorPoint->X << " " << contorPoint->Y << endl;
 			vector<string> pathToC = findPath(position,contorPoint);
-			
+			counter = pathToC.size();
 			for(int i = 0;i < pathToC.size();++i){
-				//cerr << pathToC[i] << endl;
 				cout << pathToC[i] << endl;
 			}
 			Point* startPoint = findT();
 			vector<string> pathToT = findPath(contorPoint,startPoint);
-
+			counter += pathToT.size();
 			for(int i = 0;i < pathToT.size();++i){
-				//cerr << pathToT[i] << endl;
 				cout << pathToT[i] << endl;
 			}
 		}
@@ -289,7 +289,6 @@ public:
     }
 };
 
-
 void compareMaze(string* real, string* my, int R, int C) {
     for(int i = 0; i < R; ++i) {
         for(int j = 0; j < C; ++j){
@@ -305,6 +304,7 @@ int PathNode::row = 0;
 string* PathNode::myMaze = NULL;
 string* PathNode::realMaze = NULL;
 vector<Point*> PathNode::branches;
+int PathNode::counter = 0;
 
 int main()
 {
@@ -340,15 +340,21 @@ int main()
         PathNode::myMaze = myMaze;
         PathNode::realMaze = maze;
 		
-		curPoint = new Point(KR,KC);
-		cur = new PathNode(curPoint); 
-		cur->goNext();
+		//Пока движемся к точке, игнорируем цикл
+        if(PathNode::counter - 1 > 0){
+            PathNode::counter--;
+            cerr << PathNode::counter << endl;
+        }
+        else {
+            curPoint = new Point(KR,KC);
+            cur = new PathNode(curPoint);
+            cur->goNext();
+        }
 
         // Write an action using cout. DON'T FORGET THE "<< endl"
         // To debug: cerr << "Debug messages..." << endl;
         for (int i = 0; i < R; i++) {
             cerr << maze[i] <<endl;
         }
-
     }
 }
