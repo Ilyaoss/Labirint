@@ -47,6 +47,8 @@ public:
 	//Счётчик, для приостановки бесконечного цикла в main
 	//Приостанавливаем, чтобы предотвратить создание новый точек, пока движемся
 	static int counter;
+	//Время на обратный путь
+	static int timeBack;
 public:
     PathNode(Point* p, PathNode* cf = NULL) {
         position = p;
@@ -59,6 +61,24 @@ public:
     void goNext() {
 		int size = neighbours.size();
 		myMaze[position->X][position->Y] = 'y';
+		// Если нашли С
+		if(findC() != NULL) {
+		    Point* contorPoint = findC();
+			Point* startPoint = findT();
+			vector<string> pathToT = findPath(contorPoint,startPoint);
+			// И обратный путь меньше обратного отсчёта, то идём к С и Т
+			if(pathToT.size() <= timeBack) {
+        		vector<string> pathToC = findPath(position,contorPoint);
+        		counter = pathToC.size();
+        		for(int i = 0;i < pathToC.size();++i){
+        			cout << pathToC[i] << endl;
+        		}
+        		counter += pathToT.size();
+        		for(int i = 0;i < pathToT.size();++i){
+        			cout << pathToT[i] << endl;
+        		}
+			}
+		}
 		//Если больше 1 пути, то помечаем развилку(b-branch)
 		if(size > 1) {
 		    myMaze[position->X][position->Y] = 'b';
@@ -75,8 +95,6 @@ public:
 					for (int i = 0; i < row; i++) {
 						cerr << myMaze[i] <<endl;
 					}
-					//cerr << "cur pos" << position->X << " " << position->Y << endl;
-					//cerr << "brunch pos" << branch->X << " " << branch->Y << endl;
 					//Вычисляем путь до последнего разветвления
 					vector<string> pathToLastBranch = findPath(position,branch);
 					//Выставляем счётсчик и движемся
@@ -89,21 +107,6 @@ public:
 				//Если не осталось изменяем метку
     			else myMaze[branch->X][branch->Y] = 'y';
     	    }
-			//Если разветвлений не осталось, то лабиринт изучен и можно идти к точке C и Т
-    	    cerr << "current pos" << position->X << " " << position->Y << endl;
-			Point* contorPoint = findC();
-			cerr << "C pos" << contorPoint->X << " " << contorPoint->Y << endl;
-			vector<string> pathToC = findPath(position,contorPoint);
-			counter = pathToC.size();
-			for(int i = 0;i < pathToC.size();++i){
-				cout << pathToC[i] << endl;
-			}
-			Point* startPoint = findT();
-			vector<string> pathToT = findPath(contorPoint,startPoint);
-			counter += pathToT.size();
-			for(int i = 0;i < pathToT.size();++i){
-				cout << pathToT[i] << endl;
-			}
 		}
 		
         for(int i = 0; i < size;++i){
@@ -305,6 +308,7 @@ string* PathNode::myMaze = NULL;
 string* PathNode::realMaze = NULL;
 vector<Point*> PathNode::branches;
 int PathNode::counter = 0;
+int PathNode::timeBack = 0;
 
 int main()
 {
@@ -314,6 +318,7 @@ int main()
     cin >> R >> C >> A; cin.ignore();
     PathNode::cell = C;
     PathNode::row = R;
+    PathNode::timeBack = A;
     PathNode::myMaze = new string[R];
     for(int i = 0;i < R;++i){
         PathNode::myMaze[i].resize(C,'?');
