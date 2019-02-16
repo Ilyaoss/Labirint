@@ -6,309 +6,444 @@
 using namespace std;
 
 class Point {
+private:
+    int x;
+    int y;
 public:
-    int X, Y;
-    Point(int x = 0, int y = 0) {
-        X = x; Y = y;
+    Point(int X = 0, int Y = 0) {
+        x = X; y = Y;
     }
-    Point(const Point &obj)
-    {      
-        X = obj.X;
-        Y = obj.Y;
+
+    Point(const Point &obj) {      
+        x = obj.x;
+        y = obj.y;
     }
-    friend bool operator== (Point& p1, Point& p2);
+
+	int getX() const {
+		return x;
+	}
+
+	int getY() const {
+		return y;
+	}
+
+	Point& operator= (const Point& p1) {
+        //проверка на самоприсваивание
+        if (this == &p1) {
+            return *this;
+        }
+        x = p1.x;
+		y = p1.y;
+        return *this;
+    }
+
+    bool operator== (const Point& p2) {
+        return x == p2.x && y == p2.y;
+    }
+
+	bool operator!= (const Point& p2) {
+        return x != p2.x || y != p2.y;
+    }
+
 };
-bool operator== (Point& p1, Point& p2) {
-    return p1.X == p2.X && p1.Y == p2.Y;
-}
 
 class PathNode {
 private:
 	//Координата точки
-    Point* position;
-	//Соседние клетки
-    vector<Point*> neighbours;
-	//Откуда пришли
-	PathNode* cameFrom;
-	//Длина от начала пути
-	int pathLengthFromStart;
+    Point position;
+    //Откуда пришли
+    PathNode* cameFrom;
+    //Длина от начала пути
+    int pathLengthFromStart;
     //Эвристическая длина
     int heuristicEstimatePathLength;
 public:
-	//Стек точек развилок(более 1 варианта пути)
-    static vector<Point*> branches;
-	//Мой вид лабиринта
-    static string* myMaze;
-	//Реальный вид лабиринта
-    static string* realMaze;
-	//Размер лабиринта
-	static int row;
-	static int cell;
-	//Счётчик, для приостановки бесконечного цикла в main
-	//Приостанавливаем, чтобы предотвратить создание новый точек, пока движемся
-	static int counter;
-	//Время на обратный путь
-	static int timeBack;
-public:
-    PathNode(Point* p, PathNode* cf = NULL) {
-        position = p;
-        cameFrom = cf;
-        pathLengthFromStart = 0;
-        heuristicEstimatePathLength = 0;
-		neighbours = getNeighbours(p,myMaze);
-    }
-
-    void goNext() {
-		int size = neighbours.size();
-		myMaze[position->X][position->Y] = 'y';
-		// Если нашли С
-		if(findC() != NULL) {
-		    Point* contorPoint = findC();
-			Point* startPoint = findT();
-			vector<string> pathToT = findPath(contorPoint,startPoint);
-			// И обратный путь меньше обратного отсчёта, то идём к С и Т
-			if(pathToT.size() <= timeBack) {
-        		vector<string> pathToC = findPath(position,contorPoint);
-        		counter = pathToC.size();
-        		for(int i = 0;i < pathToC.size();++i){
-        			cout << pathToC[i] << endl;
-        		}
-        		counter += pathToT.size();
-        		for(int i = 0;i < pathToT.size();++i){
-        			cout << pathToT[i] << endl;
-        		}
-			}
-		}
-		//Если больше 1 пути, то помечаем развилку(b-branch)
-		if(size > 1) {
-		    myMaze[position->X][position->Y] = 'b';
-		    branches.push_back(this->position);
-		}
-		//Если нет соседей, возращаемся к последнему разветвлению
-		else if(size < 1) {
-		    Point* branch;
-    	    while (branches.size() > 0) {
-    		    branch = branches.back();
-    		    branches.pop_back();
-    		    //Проверяем осталось ли там разветвление
-    		    if(isBrunch(branch)){ 
-					for (int i = 0; i < row; i++) {
-						cerr << myMaze[i] <<endl;
-					}
-					//Вычисляем путь до последнего разветвления
-					vector<string> pathToLastBranch = findPath(position,branch);
-					//Выставляем счётсчик и движемся
-        			counter = pathToLastBranch.size();
-					for(int i = 0; i < pathToLastBranch.size(); ++i) {
-						cout << pathToLastBranch[i] << endl;
-					}
-					return;
-				}    			
-				//Если не осталось изменяем метку
-    			else myMaze[branch->X][branch->Y] = 'y';
-    	    }
-		}
-		
-        for(int i = 0; i < size;++i){
-            int nX = neighbours[i]->X;
-    		int nY = neighbours[i]->Y;
-            if(myMaze[nX][nY]!='y'){
-                if(position->X>nX) cout << "UP"<< endl;
-                else if(position->X<nX) cout << "DOWN"<< endl;
-                else if(position->Y>nY) cout << "LEFT"<< endl;
-                else cout << "RIGHT" << endl;
-                break;
-            }
-        }
-    }
-    int estimateFullPathLength() {
-        return pathLengthFromStart + heuristicEstimatePathLength;
-    }
-    int getDistanceBetweenNeighbours() {
-        return 1;
-    }
-    int getHeuristicPathLength(Point* from, Point* to) {
-        return abs(from->X - to->X) + abs(from->Y - to->Y);
-    }
-    
-    vector<string> findPath(Point* start, Point* goal) {
+	PathNode(Point p, int hEP = 0, PathNode* cF = NULL, int pLFS = 0) {
+		position = p;
+		cameFrom = cF;
+		pathLengthFromStart = pLFS;
+		heuristicEstimatePathLength = hEP;
+	}
+	
+	static vector<string> findPath(const Point start, const Point goal, const string* maze) {
         // Результируеющий массив
         vector<string> result;
         // Массив ожидающих рассмотрения и пройденных точек
         vector<PathNode*> closedSet;
         vector<PathNode*> openSet; 
+        
+        cerr << "s " << start.getX() << " " << start.getY() << endl;
+        cerr << "e " << goal.getX() << " " << goal.getY() << endl;
+        
         // Начинаем искать
-        PathNode* startNode = new PathNode(start);
-        startNode->pathLengthFromStart = 0,
-        startNode->heuristicEstimatePathLength = getHeuristicPathLength(start, goal);
+        PathNode* startNode = new PathNode(start, getHeuristicPathLength(start, goal));
         openSet.push_back(startNode);
-        while (openSet.size() > 0)
-        {
+		
+        while (openSet.size() > 0) {
             // Берём точку ближайшую к цели
             sort(openSet.begin(),openSet.end());
             auto currentNode = openSet.front();
-            // Если совапли, то пути найден
-            //cerr << currentNode->position->X << " " << currentNode->position->Y << endl;
-            //cerr << goal->X << " " << goal->Y << endl;
-            if (*(currentNode->position) == *(goal))
-                return getPathForNode(currentNode);
+			
+			cerr << "cur " << currentNode->position.getX() << " " << currentNode->position.getY() << endl;
+			// Если совапли, то пути найден
+            if (currentNode->position == goal) {
+				vector<string> path = getPathForNode(currentNode);
+				
+				for (int i = 0; i < closedSet.size(); ++i) {
+                    delete closedSet[i];
+				}
+				
+				for (int i = 0; i < openSet.size(); ++i) {
+					delete openSet[i];
+				}
+				
+				openSet.clear();
+				closedSet.clear();
+				
+                return path;
+			}
+			
             // Переносим точку из списка ожидающий в список пройденных
             openSet.erase(openSet.begin());
             closedSet.push_back(currentNode);
             // Ищем соседей
-            vector<PathNode*> neighbourNodes = getNeighbours(currentNode, goal);
-            for(int i = 0; i < neighbourNodes.size();++i) {
+            vector<PathNode*> neighbourNodes = getNeighbours(currentNode, goal, maze);
+		    
+            for (int i = 0; i < neighbourNodes.size(); ++i) {
                 PathNode* neighbourNode = neighbourNodes[i];
+				
 				// Если сосед уже есть в списке пройденных - пропускаем
-                int SamePosition = count_if(closedSet.begin(),closedSet.end(),[neighbourNode](PathNode* closed)
-                {
-                    return *(neighbourNode->position) == *(closed->position);
+                int SamePosition = count_if(closedSet.begin(),closedSet.end(),[neighbourNode](PathNode* closed) {
+                    return (neighbourNode->position) == (closed->position);
                 });
-                if (SamePosition > 0)
+				
+                if (SamePosition > 0) {
+                    delete neighbourNode;
                     continue;
+                }
+				
 				// Ищем в списке не пройденных
-                auto openNode = find_if(openSet.begin(),openSet.end(),[neighbourNode](PathNode* opened){
-                    return *(neighbourNode->position) == *(opened->position);
+                auto openNode = find_if(openSet.begin(),openSet.end(),[neighbourNode](PathNode* opened) {
+                    return (neighbourNode->position) == (opened->position);
                 });
+				
                 // Если не нашли - то добавляем
                 if (openNode == openSet.end())
                     openSet.push_back(neighbourNode);
+				
 				// Если же сосед в списке на рассмотрение — проверяем,
-				// Если X.G + расстояние от X до Y < Y.G, значит мы пришли в точку Y более коротким путем, 
-				// Заменяем Y.G на X.G + расстояние от X до Y, а точку, из которой пришли в Y на X.
-                else if (openNode[0]->pathLengthFromStart > neighbourNode->pathLengthFromStart)
-                {
-                    // 
-                    openNode[0]->cameFrom = currentNode;
-                    openNode[0]->pathLengthFromStart = neighbourNode->pathLengthFromStart;
+				// Если X.pathLengthFromStart + расстояние от X до Y < Y.pathLengthFromStart, значит мы пришли в точку Y более коротким путем, 
+				// Заменяем Y.pathLengthFromStart на X.pathLengthFromStart + расстояние от X до Y, а точку, из которой пришли в Y на X.
+                else {
+                    if (openNode[0]->pathLengthFromStart > neighbourNode->pathLengthFromStart) {
+                        openNode[0]->cameFrom = currentNode;
+                        openNode[0]->pathLengthFromStart = neighbourNode->pathLengthFromStart;
+                    }
+					
+                    delete neighbourNode;
                 }
             }
+			
+			neighbourNodes.clear();
         }
+        
+        for (int i = 0; i < closedSet.size(); ++i) {
+			delete closedSet[i];
+		}
+		
+		for (int i = 0; i < openSet.size(); ++i) {
+			delete openSet[i];
+		}
+		
+		openSet.clear();
+		closedSet.clear();
+		openSet.clear();
+		closedSet.clear();
+        
 		// Если список точек на рассмотрение пуст, а до цели мы так и не дошли — значит маршрут не существует
         return result;
     }
+
     // Возвращаем комманды движения к точке
-	vector<string> getPathForNode(PathNode* pathNode) {
+    static vector<string> getPathForNode(PathNode* pathNode) {
 	    vector<string> path;
 		vector<PathNode*> result;
 		PathNode* currentNode = pathNode;
-		while (currentNode != NULL)
-		{	
+		
+		while (currentNode != NULL) {	
 			result.push_back(currentNode);
 			currentNode = currentNode->cameFrom;
 		}
+		
 		reverse(result.begin(), result.end());
-		for(int i = 0; i < result.size() - 1 ; ++i) {
-		    if(result[i]->position->X < result[i+1]->position->X) path.push_back("DOWN");
-		    else if(result[i]->position->X > result[i+1]->position->X) path.push_back("UP");
-		    else if(result[i]->position->Y < result[i+1]->position->Y) path.push_back("RIGHT");
+		int size = result.size();
+		
+		for (int i = 0; i < size - 1 ; ++i) {
+		    if (result[i]->position.getX() < result[i+1]->position.getX()) path.push_back("DOWN");
+		    else if (result[i]->position.getX() > result[i+1]->position.getX()) path.push_back("UP");
+		    else if (result[i]->position.getY() < result[i+1]->position.getY()) path.push_back("RIGHT");
 		    else path.push_back("LEFT");
 		}
+		
+		result.clear();
+		delete currentNode;
+		
 		return path;
 	}
-	
-	//Получаем соседние точки
-	vector<Point*> getNeighbours(Point* cur, string* M) {
-		vector<Point*> Neighbours;
-		int X = cur->X;
-		int Y = cur->Y;
-		if(M[X][Y+1]=='.') {
-			Neighbours.push_back(new Point(X,Y+1));
-		} 
-		if(M[X][Y-1]=='.') {
-			Neighbours.push_back(new Point(X,Y-1));
-		} 
-		if(M[X+1][Y]=='.') {
-			Neighbours.push_back(new Point(X+1,Y));
-		} 
-		if(M[X-1][Y]=='.') {
-			Neighbours.push_back(new Point(X-1,Y));
-		}
-		return Neighbours;
-	}
-	
-	vector<PathNode*> getNeighbours(PathNode* pathNode, Point* goal) {
+
+    static vector<PathNode*> getNeighbours(PathNode* pathNode, const Point goal, const string* maze) {
     	vector<PathNode*> result;
-    
-    	vector<Point*> neighbourPoints;
-    	neighbourPoints.push_back(new Point(pathNode->position->X + 1, pathNode->position->Y));
-    	neighbourPoints.push_back(new Point(pathNode->position->X - 1, pathNode->position->Y));
-    	neighbourPoints.push_back(new Point(pathNode->position->X, pathNode->position->Y + 1));
-    	neighbourPoints.push_back(new Point(pathNode->position->X, pathNode->position->Y - 1));
-    
-    	for(int i = 0; i < neighbourPoints.size(); ++i)
-    	{
-    		// Проверяем, что по клетке можно ходить.
-    		if ((myMaze[neighbourPoints[i]->X][neighbourPoints[i]->Y] != '?') && (myMaze[neighbourPoints[i]->X][neighbourPoints[i]->Y] != '#'))
-    		{
-        		// Заполняем данные для точки маршрута.
-        		PathNode* neighbourNode = new PathNode(neighbourPoints[i], pathNode);
-        		neighbourNode->pathLengthFromStart = pathNode->pathLengthFromStart + getDistanceBetweenNeighbours();
-        		neighbourNode->heuristicEstimatePathLength = getHeuristicPathLength(neighbourPoints[i], goal);
-        		result.push_back(neighbourNode);
-    		}
+
+		int x = pathNode->position.getX();
+		int y = pathNode->position.getY();
+		vector<Point> points = {Point(x, y + 1), Point(x, y - 1), Point(x + 1, y), Point(x - 1, y)};
+		
+    	for (int i = 0; i < points.size(); ++i) {
+			x = points[i].getX();
+			y = points[i].getY();
+            
+			// Проверяем, что по клетке можно ходить.
+			if ((maze[x][y] == '.') || (maze[x][y] == 'C') || (maze[x][y] == 'T')) {
+				Point p(x,y);
+				// Заполняем данные для точки маршрута.
+				PathNode* neighbourNode = new PathNode(p, 
+											getHeuristicPathLength(p, goal), 
+											pathNode, 
+											pathNode->pathLengthFromStart + pathNode->getDistanceBetweenNeighbours());
+				result.push_back(neighbourNode);
+			}
     	}
+        
     	return result;
     }
-    
-	Point* findC() {
-    	for(int i = 0; i < row; ++i) {
-            for(int j = 0; j < cell; ++j){
-                if(myMaze[i][j]=='C')
-                    return new Point(i,j);
+	
+	int estimateFullPathLength() const {
+        return pathLengthFromStart + heuristicEstimatePathLength;
+    }
+
+	int getDistanceBetweenNeighbours() const {
+		return 1;
+	}
+
+	static int getHeuristicPathLength(const Point from, const Point to) {
+        return abs(from.getX() - to.getX()) + abs(from.getY() - to.getY());
+    }
+
+    bool operator< (PathNode* a) {
+        return (this->estimateFullPathLength() < a->estimateFullPathLength());
+    }
+
+};
+
+class Path {
+private:
+    //Координата точки
+    Point position;
+    //Соседние клетки
+    vector<Point> neighbours;
+    //Стек точек развилок(более 1 варианта пути)
+    static vector<Point> branches;
+    //Мой вид лабиринта
+    static string* myMaze;
+    //Реальный вид лабиринта
+    static string* realMaze;
+    //Размер лабиринта
+    static int row;
+    static int cell;
+    //Счётчик, для приостановки бесконечного цикла в main
+    //Приостанавливаем, чтобы предотвратить создание новый точек, пока движемся
+    static int counter;
+    //Время на обратный путь
+    static int timeBack;
+    //Контрольная комната
+    static Point controlPoint;
+public:
+    Path(Point p) {
+        position = p;
+        neighbours = getNeighbours(p, myMaze);
+    }
+
+    void goNext() {
+		
+        for (int i = 0; i < row; ++i) {
+            cerr << realMaze[i] << endl;
+        }
+        
+        int size = neighbours.size();
+        myMaze[position.getX()][position.getY()] = 'y';
+        
+        // Если нашли С
+        if (controlPoint != Point(-1,-1)) {
+            Point startPoint = findT();
+            vector<string> pathToT = PathNode::findPath(controlPoint,startPoint,realMaze);
+            
+			// И обратный путь меньше обратного отсчёта, то идём к С и Т
+            if (pathToT.size() <= timeBack && pathToT.size() > 0) {
+                vector<string> pathToC = PathNode::findPath(position,controlPoint,realMaze);
+                counter = pathToC.size() + pathToT.size();
+                
+				for (int i = 0; i < pathToC.size(); ++i) {
+				    cerr << pathToC[i] << endl;
+                    cout << pathToC[i] << endl;
+                }
+                
+				for (int i = 0; i < pathToT.size(); ++i) {
+				    cerr << pathToT[i] << endl;
+                    cout << pathToT[i] << endl;
+                }
+                
+                branches.clear();
+				//delete myMaze;
+				//delete realMaze;
+            }
+			pathToT.clear();
+        }
+        else controlPoint = findC();
+        
+        //Если больше 1 пути, то помечаем развилку(b-branch)
+        if (size > 1) {
+            myMaze[position.getX()][position.getY()] = 'b';
+            branches.push_back(position);
+        }
+		//Если нет соседей, возращаемся к последнему разветвлению
+        else if (size < 1) {
+            while (branches.size() > 0) {
+                Point branch = branches.back();
+                branches.pop_back();
+                
+				//Проверяем осталось ли там разветвление
+                if (isBrunch(branch)) { 
+                    //Вычисляем путь до последнего разветвления
+                    vector<string> pathToLastBranch = PathNode::findPath(position,branch,realMaze);
+                    //Выставляем счётсчик и движемся
+                    counter = pathToLastBranch.size();
+                    
+					for (int i = 0; i < pathToLastBranch.size(); ++i) {
+                        cout << pathToLastBranch[i] << endl;
+                    }
+					
+                    return;
+                }
+                //Если не осталось изменяем метку
+                else myMaze[branch.getX()][branch.getY()] = 'y';
             }
         }
-    	return NULL;
-    }
-    
-	Point* findT() {
-    	for(int i = 0; i < row; ++i) {
-            for(int j = 0; j < cell; ++j){
-                if(realMaze[i][j]=='T')
-                    return new Point(i,j);
+        
+        for(int i = 0; i < size; ++i) {
+		    int nX = neighbours[i].getX();
+            int nY = neighbours[i].getY();
+			
+            if (myMaze[nX][nY] != 'y') {
+                if (position.getX() > nX) cout << "UP"<< endl;
+                else if (position.getX() < nX) cout << "DOWN"<< endl;
+                else if (position.getY() > nY) cout << "LEFT"<< endl;
+                else cout << "RIGHT" << endl;
+                break;
             }
         }
-    	return NULL;
     }
-    
-	bool isBrunch(Point* p) {
-        int X = p->X;
-        int Y = p->Y;
-        if(myMaze[X][Y+1] == '.' || myMaze[X][Y-1] == '.'
+
+    //Получаем соседние точки
+    vector<Point> getNeighbours(const Point cur, const string* M) const {
+		vector<Point> neighbours;
+		int x = cur.getX();
+		int y = cur.getY();
+		
+		vector<Point> points = {Point(x, y + 1), Point(x, y - 1), Point(x + 1, y), Point(x - 1, y)};
+		
+		for (int i = 0; i < points.size(); ++i) {
+		    x = points[i].getX();
+		    y = points[i].getY();
+			if (M[x][y] == '.') {
+			    neighbours.push_back(points[i]);
+		    } 
+		}
+
+		return neighbours;
+	}
+
+    Point findC() const {
+    	for (int i = 0; i < row; ++i) {
+            for (int j = 0; j < cell; ++j) {
+                if (realMaze[i][j] == 'C')
+                    return Point(i,j);
+            }
+        }
+    	return Point(-1,-1);
+    }
+
+    Point findT() const {
+    	for (int i = 0; i < row; ++i) {
+            for (int j = 0; j < cell; ++j) {
+                if (realMaze[i][j] == 'T')
+                    return Point(i,j);
+            }
+        }
+    	return Point(-1,-1);
+    }
+
+    bool isBrunch(const Point p) const {
+        int X = p.getX();
+        int Y = p.getY();
+        
+        if (myMaze[X][Y+1] == '.' || myMaze[X][Y-1] == '.'
             || myMaze[X+1][Y] == '.' || myMaze[X-1][Y] == '.')
             return true;
         return false;
     }
-	
-	bool operator< (PathNode* a) {
-        return (this->estimateFullPathLength() < a->estimateFullPathLength());
-    }
-    
-    ~PathNode() {
-        for(int i = 0; i < neighbours.size();++i)
-            delete neighbours[i];
-        neighbours.clear();
-        delete cameFrom;
-    }
+
+	static void setMyMaze(string* m) {
+		myMaze = m;
+	}
+
+    static string* getMyMaze() {
+		return myMaze;
+	}
+
+	static void setRealMaze(string* m) {
+		realMaze = m;
+	}
+
+	static void setTimer(int t) {
+		timeBack = t;
+	}
+
+	static void setRow(int r) {
+		row = r;
+	}
+
+	static void setCell(int c) {
+		cell = c;
+	}
+
+	static int getCounter() {
+		return counter;
+	}
+
+	static void decrementCounter() {
+		--counter;
+	}
+
 };
 
-void compareMaze(string* real, string* my, int R, int C) {
-    for(int i = 0; i < R; ++i) {
-        for(int j = 0; j < C; ++j){
-            if(real[i][j]!=my[i][j] && my[i][j]!='y'
-									&& my[i][j]!='b')
+void compareMaze(const string* real, string* my, const int R, const int C) {
+    for (int i = 0; i < R; ++i) {
+        for (int j = 0; j < C; ++j) {
+            if (real[i][j] != my[i][j] && my[i][j] != 'y'
+									&& my[i][j] != 'b')
                 my[i][j] = real[i][j];
         }
     }
 }
 
-int PathNode::cell = 0;
-int PathNode::row = 0;
-string* PathNode::myMaze = NULL;
-string* PathNode::realMaze = NULL;
-vector<Point*> PathNode::branches;
-int PathNode::counter = 0;
-int PathNode::timeBack = 0;
+int Path::cell = 0;
+int Path::row = 0;
+string* Path::myMaze = NULL;
+string* Path::realMaze = NULL;
+Point Path::controlPoint(-1,-1);
+vector<Point> Path::branches;
+int Path::counter = 0;
+int Path::timeBack = 0;
 
 int main()
 {
@@ -316,50 +451,46 @@ int main()
     int C; // number of columns.
     int A; // number of rounds between the time the alarm countdown is activated and the time the alarm goes off.
     cin >> R >> C >> A; cin.ignore();
-    PathNode::cell = C;
-    PathNode::row = R;
-    PathNode::timeBack = A;
-    PathNode::myMaze = new string[R];
-    for(int i = 0;i < R;++i){
-        PathNode::myMaze[i].resize(C,'?');
+    
+	Path::setRow(R);
+	Path::setCell(C);
+    Path::setTimer(A);
+	
+    string* myMaze = new string[R];
+	string* maze = new string[R];
+	
+    for (int i = 0; i < R; ++i) {
+        myMaze[i].resize(C,'?');
     }
-    string* myMaze;  
-    string* maze = new string[R];
-    PathNode* cur;
-    Point* curPoint;
+
+	Path::setMyMaze(myMaze);
+
 	// game loop
     while (1) {
         int KR; // row where Kirk is located.
         int KC; // column where Kirk is located.
         cin >> KR >> KC; cin.ignore();
-        myMaze =  PathNode::myMaze;
-        for (int i = 0; i < R; i++) {
+        myMaze =  Path::getMyMaze();
+        
+		for (int i = 0; i < R; ++i) {
             string row; // C of the characters in '#.TC?' (i.e. one line of the ASCII maze).
             cin >> row; cin.ignore();
             maze[i] = row;
         }
-        for(int i = 0;i < R;++i) {
-            cerr << myMaze[i] << endl;
-        }
+		
         compareMaze(maze, myMaze, R, C);
-        PathNode::myMaze = myMaze;
-        PathNode::realMaze = maze;
+        Path::setMyMaze(myMaze);
+        Path::setRealMaze(maze);
 		
 		//Пока движемся к точке, игнорируем цикл
-        if(PathNode::counter - 1 > 0){
-            PathNode::counter--;
-            cerr << PathNode::counter << endl;
-        }
-        else {
-            curPoint = new Point(KR,KC);
-            cur = new PathNode(curPoint);
-            cur->goNext();
-        }
-
-        // Write an action using cout. DON'T FORGET THE "<< endl"
-        // To debug: cerr << "Debug messages..." << endl;
-        for (int i = 0; i < R; i++) {
-            cerr << maze[i] <<endl;
+        if (Path::getCounter() - 1 > 0){
+            Path::decrementCounter();
+        } else {
+            Point curPoint(KR,KC);
+            Path curPath(curPoint);
+            curPath.goNext();
         }
     }
+    delete maze;
+    delete myMaze;
 }
