@@ -92,10 +92,10 @@ public:
         
         while (openSet.size() > 0) {
             // Берём точку ближайшую к цели
-            sort(openSet.begin(),openSet.end());
+            sort(openSet.begin(),openSet.end(), sortFunction);
             auto currentNode = openSet.front();
             
-            // Если совапли, то путь найден
+            // Если совапли, то пути найден
             if (currentNode->position == goal) {
                 vector<string> path = getPathForNode(currentNode);
                 
@@ -145,6 +145,7 @@ public:
             neighbourNodes.clear();
         }
         
+        openSet.clear();
         closedSet.clear();
         
         // Если список точек на рассмотрение пуст, а до цели мы так и не дошли
@@ -214,9 +215,15 @@ public:
     static int getHeuristicPathLength(const Point from, const Point to) {
         return abs(from.getX() - to.getX()) + abs(from.getY() - to.getY());
     }
-
-    bool operator< (const PathNode* a) {
-        return (this->estimateFullPathLength() < a->estimateFullPathLength());
+    
+    static bool sortFunction (const shared_ptr<PathNode> left, const shared_ptr<PathNode> right) {
+        if(left->estimateFullPathLength() == right->estimateFullPathLength()) {
+            if(left->position.getX() == right->position.getX()) {
+                return left->position.getY() < right->position.getY();
+            }
+            return left->position.getX() < right->position.getX();
+        }
+        return (left->estimateFullPathLength() < right->estimateFullPathLength());
     }
 
 };
@@ -280,6 +287,8 @@ public:
                 Point startPoint = findT();
                 vector<string> pathToT = PathNode::findPath(controlPoint,startPoint,realMaze);
                 
+                cerr << alarm << endl;
+                cerr << pathToT.size()<< endl;
                 // И обратный путь меньше обратного отсчёта, то идём к С и Т
                 if (pathToT.size() <= alarm && pathToT.size() > 0) {
                     vector<string> pathToC = PathNode::findPath(position,controlPoint,realMaze);
